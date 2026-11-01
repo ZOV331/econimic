@@ -60,6 +60,7 @@ public class GameScreen {
     private LinearLayout grid;
     private EditText input;
     private boolean gridOpen = false;
+    private TextView menuBtn;
 
     GameScreen(MainActivity act, String server, String token) {
         this.act = act;
@@ -85,82 +86,89 @@ public class GameScreen {
         LinearLayout top = new LinearLayout(c);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setBackgroundColor(0xFF000000);
-        top.setPadding(Mono.dp(16), 0, Mono.dp(6), 0);
+        top.setPadding(Mono.dp(18), 0, Mono.dp(12), 0);
+
+        View dot = new View(c);
+        dot.setBackground(Mono.blueGradient(3));
+        LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(Mono.dp(12), Mono.dp(12));
+        dotLp.rightMargin = Mono.dp(10);
+        top.addView(dot, dotLp);
 
         TextView title = new TextView(c);
         title.setText(Config.APP_NAME);
         title.setTypeface(Mono.DISPLAY);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        title.setLetterSpacing(0.08f);
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 21);
+        title.setLetterSpacing(0.06f);
+        title.setTextColor(Mono.TEXT);
         top.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         status = new TextView(c);
-        status.setTextColor(0xFFFFFFFF);
-        status.setAlpha(0.6f);
+        status.setTextColor(Mono.MUTED);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         status.setPadding(Mono.dp(10), 0, 0, 0);
         top.addView(status, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
-        top.addView(topIcon("◐", v -> act.toggleTheme()));
-        TextView exit = topIcon("ВЫЙТИ", v -> new AlertDialog.Builder(act)
+        TextView exit = Mono.makeButton(c, "Выйти", Mono.SOFT, 13, 17);
+        exit.setOnClickListener(v -> new AlertDialog.Builder(act)
                 .setMessage("Выйти из аккаунта?")
                 .setPositiveButton("Выйти", (d, w) -> act.logout())
                 .setNegativeButton("Отмена", null)
                 .show());
-        exit.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        exit.setLetterSpacing(0.12f);
-        exit.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Mono.dp(46)));
-        exit.setPadding(Mono.dp(10), 0, Mono.dp(10), 0);
-        top.addView(exit);
-        root.addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(54)));
-        if (Mono.dark) {
-            root.addView(line(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(1)));
-        }
+        exit.setPadding(Mono.dp(14), 0, Mono.dp(14), 0);
+        top.addView(exit, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Mono.dp(34)));
+        root.addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(58)));
+        root.addView(line(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(1)));
 
         // --- лента ---
         scroll = new ScrollView(c);
         scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
         list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(Mono.dp(12), Mono.dp(12), Mono.dp(12), Mono.dp(6));
+        list.setPadding(Mono.dp(14), Mono.dp(14), Mono.dp(14), Mono.dp(6));
         scroll.addView(list, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
 
         emptyHint = new TextView(c);
-        emptyHint.setText("Откройте раздел в меню внизу ↓");
-        emptyHint.setTextColor(Mono.muted());
+        emptyHint.setText("Откройте раздел в меню внизу");
+        emptyHint.setTextColor(Mono.MUTED);
         emptyHint.setGravity(Gravity.CENTER);
         emptyHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        emptyHint.setPadding(0, Mono.dp(60), 0, Mono.dp(60));
+        emptyHint.setPadding(0, Mono.dp(80), 0, Mono.dp(80));
 
-        // --- меню ---
-        root.addView(line(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(1.5f)));
+        // --- нижняя панель ---
+        LinearLayout panel = new LinearLayout(c);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        GradientDrawable pbg = new GradientDrawable();
+        pbg.setColor(Mono.SURFACE);
+        float r = Mono.dp(22);
+        pbg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        panel.setBackground(pbg);
+        panel.setPadding(0, Mono.dp(6), 0, 0);
+
         grid = new LinearLayout(c);
         grid.setOrientation(LinearLayout.VERTICAL);
-        grid.setPadding(Mono.dp(8), Mono.dp(8), Mono.dp(8), 0);
-        root.addView(grid, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+        grid.setPadding(Mono.dp(10), Mono.dp(6), Mono.dp(10), 0);
+        panel.addView(grid, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
         chipsScroll = new HorizontalScrollView(c);
         chipsScroll.setHorizontalScrollBarEnabled(false);
         chips = new LinearLayout(c);
         chips.setOrientation(LinearLayout.HORIZONTAL);
-        chips.setPadding(Mono.dp(8), Mono.dp(8), Mono.dp(8), 0);
+        chips.setPadding(Mono.dp(10), Mono.dp(6), Mono.dp(10), 0);
         chipsScroll.addView(chips);
-        root.addView(chipsScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+        panel.addView(chipsScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        // --- ввод ---
         LinearLayout bottom = new LinearLayout(c);
         bottom.setOrientation(LinearLayout.HORIZONTAL);
         bottom.setGravity(Gravity.CENTER_VERTICAL);
-        bottom.setPadding(Mono.dp(8), Mono.dp(8), Mono.dp(8), Mono.dp(8));
+        bottom.setPadding(Mono.dp(10), Mono.dp(8), Mono.dp(10), Mono.dp(12));
 
-        TextView menuBtn = Mono.makeButton(c, "☰", false, 20);
+        menuBtn = Mono.makeButton(c, "☰", Mono.SOFT, 20, 24);
         menuBtn.setOnClickListener(v -> {
             gridOpen = !gridOpen;
             if (gridOpen) {
@@ -173,11 +181,11 @@ public class GameScreen {
         input = new EditText(c);
         input.setSingleLine(true);
         input.setHint("Сообщение или ответ…");
-        input.setTextColor(Mono.fg());
-        input.setHintTextColor(Mono.muted());
+        input.setTextColor(Mono.TEXT);
+        input.setHintTextColor(Mono.MUTED);
         input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        input.setBackground(Mono.box(Mono.bg(), Mono.fg(), 1.5f));
-        input.setPadding(Mono.dp(12), 0, Mono.dp(12), 0);
+        input.setBackground(Mono.rounded(Mono.SURFACE2, 24, Mono.LINE, 1));
+        input.setPadding(Mono.dp(18), 0, Mono.dp(18), 0);
         input.setImeOptions(EditorInfo.IME_ACTION_SEND);
         cursor(input);
         input.setOnEditorActionListener((v, id, ev) -> {
@@ -195,10 +203,11 @@ public class GameScreen {
         inLp.rightMargin = Mono.dp(8);
         bottom.addView(input, inLp);
 
-        TextView sendBtn = Mono.makeButton(c, "→", true, 20);
+        TextView sendBtn = Mono.makeButton(c, "➤", Mono.BLUE, 18, 24);
         sendBtn.setOnClickListener(v -> sendInput());
         bottom.addView(sendBtn, new LinearLayout.LayoutParams(Mono.dp(48), Mono.dp(48)));
-        root.addView(bottom);
+        panel.addView(bottom);
+        root.addView(panel);
 
         act.setScreen(root);
 
@@ -215,29 +224,28 @@ public class GameScreen {
 
     private View line() {
         View v = new View(act);
-        v.setBackgroundColor(Mono.fg());
+        v.setBackgroundColor(Mono.LINE);
         return v;
-    }
-
-    private TextView topIcon(String text, View.OnClickListener l) {
-        TextView b = new TextView(act);
-        b.setText(text);
-        b.setTextColor(0xFFFFFFFF);
-        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        b.setGravity(Gravity.CENTER);
-        b.setClickable(true);
-        b.setOnClickListener(l);
-        b.setLayoutParams(new LinearLayout.LayoutParams(Mono.dp(46), Mono.dp(46)));
-        return b;
     }
 
     static void cursor(EditText e) {
         if (Build.VERSION.SDK_INT >= 29) {
             GradientDrawable d = new GradientDrawable();
-            d.setColor(Mono.fg());
+            d.setColor(Mono.BLUE_HI);
             d.setSize(Mono.dp(2), Mono.dp(20));
             e.setTextCursorDrawable(d);
         }
+    }
+
+    /** Кнопки «назад/отмена» — приглушённые, остальные — яркие синие. */
+    private static int styleFor(String text) {
+        String t = text.toLowerCase();
+        if (t.contains("⬅") || t.contains("←") || t.contains("назад") || t.contains("отмена")
+                || t.contains("к списку") || t.contains("❌") || t.contains("закрыть")
+                || t.equals("⬜") || t.equals("❓")) {
+            return Mono.SOFT;
+        }
+        return Mono.BLUE;
     }
 
     // ===================== СООБЩЕНИЯ =====================
@@ -247,15 +255,19 @@ public class GameScreen {
         if (m.optBoolean("out")) {
             TextView t = new TextView(c);
             t.setText(Mono.html(m.optString("text")));
-            t.setTextColor(Mono.bg());
+            t.setTextColor(Mono.TEXT);
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-            t.setBackground(Mono.box(Mono.fg(), Mono.fg(), 0));
-            t.setPadding(Mono.dp(14), Mono.dp(9), Mono.dp(14), Mono.dp(9));
+            GradientDrawable bub = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[]{Mono.BLUE_HI, Mono.BLUE_C});
+            float br = Mono.dp(18);
+            bub.setCornerRadii(new float[]{br, br, br, br, Mono.dp(4), Mono.dp(4), br, br});
+            t.setBackground(bub);
+            t.setPadding(Mono.dp(16), Mono.dp(10), Mono.dp(16), Mono.dp(10));
             t.setMaxWidth((int) (act.getResources().getDisplayMetrics().widthPixels * 0.78f));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.gravity = Gravity.END;
-            lp.bottomMargin = Mono.dp(10);
+            lp.bottomMargin = Mono.dp(12);
             lp.leftMargin = Mono.dp(48);
             t.setLayoutParams(lp);
             return t;
@@ -263,12 +275,11 @@ public class GameScreen {
 
         LinearLayout card = new LinearLayout(c);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(Mono.box(Mono.bg(), Mono.fg(), 1.5f));
-        int pad = Mono.dp(1.5f);
-        card.setPadding(pad, pad, pad, pad);
+        card.setBackground(Mono.rounded(Mono.SURFACE, 20, Mono.LINE, 1));
+        card.setClipToOutline(true);
         LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
-        cardLp.bottomMargin = Mono.dp(12);
+        cardLp.bottomMargin = Mono.dp(14);
         card.setLayoutParams(cardLp);
 
         String photo = m.isNull("photo") ? "" : m.optString("photo", "");
@@ -277,11 +288,11 @@ public class GameScreen {
             iv.setAdjustViewBounds(true);
             iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
             iv.setMinimumHeight(Mono.dp(200));
-            iv.setBackgroundColor(Mono.soft());
+            iv.setBackgroundColor(Mono.SURFACE2);
             card.addView(iv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
             String url = photo.startsWith("http") ? photo : server + photo;
-            Images.load(url, iv, () -> {
+            Images.load(url, iv, m.optBoolean("anim") || url.endsWith(".gif"), () -> {
                 if (!msgs.isEmpty() && msgs.lastKey() == id) {
                     scrollToBottom();
                 }
@@ -294,7 +305,7 @@ public class GameScreen {
             d.setText(dice.optString("emoji", "🎲"));
             d.setTextSize(TypedValue.COMPLEX_UNIT_SP, 72);
             d.setGravity(Gravity.CENTER);
-            d.setPadding(0, Mono.dp(16), 0, Mono.dp(16));
+            d.setPadding(0, Mono.dp(18), 0, Mono.dp(18));
             card.addView(d, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT));
             d.setScaleX(0.4f);
@@ -306,12 +317,12 @@ public class GameScreen {
         if (!text.isEmpty()) {
             TextView t = new TextView(c);
             t.setText(Mono.html(text));
-            t.setTextColor(Mono.fg());
-            t.setLinkTextColor(Mono.fg());
+            t.setTextColor(Mono.TEXT);
+            t.setLinkTextColor(Mono.BLUE_HI);
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
             t.setTypeface(Mono.BODY);
-            t.setLineSpacing(0, 1.18f);
-            t.setPadding(Mono.dp(14), Mono.dp(12), Mono.dp(14), Mono.dp(12));
+            t.setLineSpacing(0, 1.25f);
+            t.setPadding(Mono.dp(18), Mono.dp(16), Mono.dp(18), Mono.dp(14));
             if (text.contains("<a ")) {
                 t.setMovementMethod(LinkMovementMethod.getInstance());
             }
@@ -320,14 +331,10 @@ public class GameScreen {
 
         JSONArray rows = m.optJSONArray("buttons");
         if (rows != null && rows.length() > 0) {
-            if (!text.isEmpty() || dice != null || !photo.isEmpty()) {
-                View sep = line();
-                sep.setAlpha(0.15f);
-                card.addView(sep, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(1)));
-            }
             LinearLayout box = new LinearLayout(c);
             box.setOrientation(LinearLayout.VERTICAL);
-            box.setPadding(Mono.dp(6), Mono.dp(6), Mono.dp(6), Mono.dp(6));
+            int top = text.isEmpty() ? Mono.dp(10) : 0;
+            box.setPadding(Mono.dp(10), top, Mono.dp(10), Mono.dp(12));
             for (int r = 0; r < rows.length(); r++) {
                 JSONArray row = rows.optJSONArray(r);
                 if (row == null) {
@@ -350,13 +357,14 @@ public class GameScreen {
     }
 
     private TextView inlineButton(final int msgId, final JSONObject b, int inRow) {
-        final TextView v = Mono.makeButton(act, b.optString("text"), false, inRow >= 4 ? 16 : 14);
+        String label = b.optString("text");
+        final TextView v = Mono.makeButton(act, label, styleFor(label), inRow >= 4 ? 16 : 14, 14);
         v.setMaxLines(2);
         v.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        v.setMinHeight(Mono.dp(inRow >= 4 ? 50 : 44));
+        v.setMinHeight(Mono.dp(inRow >= 4 ? 52 : 46));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        int m = Mono.dp(3);
-        lp.setMargins(m, m, m, m);
+        int mg = Mono.dp(3);
+        lp.setMargins(mg, mg, mg, mg);
         v.setLayoutParams(lp);
         final String url = b.optString("url", "");
         final String data = b.optString("data", "");
@@ -369,7 +377,7 @@ public class GameScreen {
                 }
                 return;
             }
-            v.setAlpha(0.45f);
+            v.setAlpha(0.5f);
             v.postDelayed(() -> v.setAlpha(1f), 1500);
             press(msgId, data);
         });
@@ -389,6 +397,9 @@ public class GameScreen {
         } else {
             int idx = msgs.headMap(id).size();
             list.addView(nv, Math.min(idx, list.getChildCount()));
+            nv.setAlpha(0f);
+            nv.setTranslationY(Mono.dp(14));
+            nv.animate().alpha(1f).translationY(0f).setDuration(220).start();
         }
         views.put(id, nv);
         while (msgs.size() > MAX_VIEWS) {
@@ -419,7 +430,7 @@ public class GameScreen {
     }
 
     private void scrollToBottom() {
-        scroll.post(() -> scroll.scrollTo(0, list.getBottom()));
+        scroll.post(() -> scroll.smoothScrollTo(0, list.getBottom()));
     }
 
     // ===================== МЕНЮ =====================
@@ -453,6 +464,9 @@ public class GameScreen {
     private void renderMenu() {
         chips.removeAllViews();
         grid.removeAllViews();
+        if (menuBtn != null) {
+            menuBtn.setBackground(Mono.button(gridOpen ? Mono.BLUE : Mono.SOFT, 24));
+        }
         boolean has = menu != null && menu.length() > 0;
         if (!has) {
             gridOpen = false;
@@ -482,15 +496,16 @@ public class GameScreen {
     }
 
     private TextView menuButton(final String text, boolean inGrid) {
-        TextView b = Mono.makeButton(act, text, false, 14);
+        boolean home = text.contains("Меню");
+        TextView b = Mono.makeButton(act, text, home ? Mono.BLUE : Mono.SOFT, 14, inGrid ? 14 : 19);
         b.setSingleLine(true);
         LinearLayout.LayoutParams lp = inGrid
-                ? new LinearLayout.LayoutParams(0, Mono.dp(42), 1)
+                ? new LinearLayout.LayoutParams(0, Mono.dp(46), 1)
                 : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Mono.dp(38));
-        int m = Mono.dp(3);
-        lp.setMargins(m, m, m, m);
+        int mg = Mono.dp(3);
+        lp.setMargins(mg, mg, mg, mg);
         b.setLayoutParams(lp);
-        b.setPadding(Mono.dp(12), 0, Mono.dp(12), 0);
+        b.setPadding(Mono.dp(14), 0, Mono.dp(14), 0);
         b.setOnClickListener(v -> {
             if (gridOpen) {
                 gridOpen = false;

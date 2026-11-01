@@ -1,9 +1,6 @@
 package ru.game.app;
 
 import android.content.res.ColorStateList;
-import android.graphics.ColorMatrix;
-import android.graphics.ColorMatrixColorFilter;
-import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -12,90 +9,92 @@ import android.text.Html;
 import android.text.SpannableStringBuilder;
 import android.util.TypedValue;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.TextView;
 
-/** Чёрно-белая палитра и общие элементы оформления. */
+/** Тёмная тема: чёрный фон, белый текст, синие кнопки. */
 public final class Mono {
-    public static boolean dark = false;
     public static float density = 1f;
+
+    /** Стили кнопок. */
+    public static final int BLUE = 1;   // яркая синяя (градиент)
+    public static final int SOFT = 2;   // приглушённая синяя (назад, отмена, второстепенное)
 
     public static final Typeface DISPLAY = Typeface.create("sans-serif-condensed", Typeface.BOLD);
     public static final Typeface BODY = Typeface.create("sans-serif", Typeface.NORMAL);
     public static final Typeface MEDIUM = Typeface.create("sans-serif-medium", Typeface.NORMAL);
 
+    // ---- палитра ----
+    public static final int BG = 0xFF07080C;        // фон
+    public static final int SURFACE = 0xFF10131B;   // карточки
+    public static final int SURFACE2 = 0xFF181C27;  // поля ввода, подложки
+    public static final int LINE = 0xFF242A3A;      // тонкие линии
+    public static final int TEXT = 0xFFFFFFFF;
+    public static final int MUTED = 0xFF8C95AB;
+    public static final int BLUE_HI = 0xFF4F80FF;
+    public static final int BLUE_C = 0xFF2B5CFF;
+    public static final int BLUE_DEEP = 0xFF1B3ECC;
+    public static final int BLUE_SOFT = 0xFF14204A;
+    public static final int BLUE_SOFT_LINE = 0xFF2A3F86;
+
     private Mono() {
-    }
-
-    public static int bg() {
-        return dark ? 0xFF000000 : 0xFFFFFFFF;
-    }
-
-    public static int fg() {
-        return dark ? 0xFFFFFFFF : 0xFF000000;
-    }
-
-    public static int muted() {
-        return dark ? 0xFF8A8A8A : 0xFF707070;
-    }
-
-    public static int soft() {
-        return dark ? 0xFF161616 : 0xFFF0F0F0;
     }
 
     public static int dp(float v) {
         return Math.round(v * density);
     }
 
-    public static GradientDrawable box(int fill, int stroke, float strokeDp) {
+    public static GradientDrawable rounded(int fill, float radiusDp, int stroke, float strokeDp) {
         GradientDrawable d = new GradientDrawable();
         d.setShape(GradientDrawable.RECTANGLE);
         d.setColor(fill);
+        d.setCornerRadius(dp(radiusDp));
         if (strokeDp > 0) {
             d.setStroke(Math.max(1, dp(strokeDp)), stroke);
         }
         return d;
     }
 
-    /** Кнопка: обводка или заливка; при нажатии цвета меняются местами. */
-    public static Drawable button(boolean filled) {
+    public static GradientDrawable blueGradient(float radiusDp) {
+        GradientDrawable d = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{BLUE_HI, BLUE_C});
+        d.setCornerRadius(dp(radiusDp));
+        return d;
+    }
+
+    public static Drawable button(int style, float radiusDp) {
+        Drawable normal;
+        Drawable pressed;
+        if (style == BLUE) {
+            normal = blueGradient(radiusDp);
+            pressed = rounded(BLUE_DEEP, radiusDp, BLUE_DEEP, 0);
+        } else {
+            normal = rounded(BLUE_SOFT, radiusDp, BLUE_SOFT_LINE, 1);
+            pressed = rounded(BLUE_C, radiusDp, BLUE_C, 1);
+        }
         StateListDrawable s = new StateListDrawable();
-        Drawable normal = filled ? box(fg(), fg(), 1.5f) : box(bg(), fg(), 1.5f);
-        Drawable pressed = filled ? box(bg(), fg(), 1.5f) : box(fg(), fg(), 1.5f);
         s.addState(new int[]{android.R.attr.state_pressed}, pressed);
         s.addState(new int[]{}, normal);
         return s;
     }
 
-    public static ColorStateList buttonText(boolean filled) {
-        int normal = filled ? bg() : fg();
-        int pressed = filled ? fg() : bg();
+    public static ColorStateList buttonText() {
         return new ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_pressed}, new int[]{}},
-                new int[]{pressed, normal});
+                new int[]{TEXT, TEXT});
     }
 
-    public static TextView makeButton(android.content.Context ctx, String text, boolean filled, float sizeSp) {
+    public static TextView makeButton(android.content.Context ctx, String text, int style, float sizeSp, float radiusDp) {
         TextView b = new TextView(ctx);
         b.setText(text);
         b.setGravity(Gravity.CENTER);
         b.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
         b.setTypeface(MEDIUM);
-        b.setTextColor(buttonText(filled));
-        b.setBackground(button(filled));
+        b.setTextColor(buttonText());
+        b.setBackground(button(style, radiusDp));
         b.setClickable(true);
         b.setFocusable(true);
-        b.setPadding(dp(8), dp(6), dp(8), dp(6));
+        b.setPadding(dp(10), dp(6), dp(10), dp(6));
         return b;
-    }
-
-    /** Фильтр «всё чёрно-белое»: фото и эмодзи тоже становятся серыми. */
-    public static void grayscale(View root) {
-        ColorMatrix cm = new ColorMatrix();
-        cm.setSaturation(0f);
-        Paint p = new Paint();
-        p.setColorFilter(new ColorMatrixColorFilter(cm));
-        root.setLayerType(View.LAYER_TYPE_HARDWARE, p);
     }
 
     /** HTML от бота (b, i, u, s, a, code…) -> текст для TextView. */
