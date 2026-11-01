@@ -14,7 +14,6 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -55,12 +54,7 @@ public class GameScreen {
     private ScrollView scroll;
     private TextView status;
     private TextView emptyHint;
-    private LinearLayout chips;
-    private HorizontalScrollView chipsScroll;
-    private LinearLayout grid;
     private EditText input;
-    private boolean gridOpen = false;
-    private TextView menuBtn;
 
     private final ChatPanel chat;
     private boolean chatTab = false;
@@ -144,25 +138,28 @@ public class GameScreen {
         gameBox.setOrientation(LinearLayout.VERTICAL);
         gameArea = gameBox;
 
+        // --- карточка игрока ---
+        gameBox.addView(buildCard());
+
         // --- лента ---
         scroll = new ScrollView(c);
         scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
         list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(Mono.dp(14), Mono.dp(14), Mono.dp(14), Mono.dp(6));
+        list.setPadding(Mono.dp(14), Mono.dp(10), Mono.dp(14), Mono.dp(6));
         scroll.addView(list, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         gameBox.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
 
         emptyHint = new TextView(c);
-        emptyHint.setText("Откройте раздел в меню внизу");
+        emptyHint.setText("Выберите раздел на панели внизу");
         emptyHint.setTextColor(Mono.MUTED);
         emptyHint.setGravity(Gravity.CENTER);
         emptyHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         emptyHint.setPadding(0, Mono.dp(80), 0, Mono.dp(80));
 
-        // --- нижняя панель ---
+        // --- нижняя панель: поле ответа + навигация ---
         LinearLayout panel = new LinearLayout(c);
         panel.setOrientation(LinearLayout.VERTICAL);
         GradientDrawable pbg = new GradientDrawable();
@@ -170,67 +167,40 @@ public class GameScreen {
         float r = Mono.dp(22);
         pbg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
         panel.setBackground(pbg);
-        panel.setPadding(0, Mono.dp(6), 0, 0);
-
-        grid = new LinearLayout(c);
-        grid.setOrientation(LinearLayout.VERTICAL);
-        grid.setPadding(Mono.dp(10), Mono.dp(6), Mono.dp(10), 0);
-        panel.addView(grid, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        chipsScroll = new HorizontalScrollView(c);
-        chipsScroll.setHorizontalScrollBarEnabled(false);
-        chips = new LinearLayout(c);
-        chips.setOrientation(LinearLayout.HORIZONTAL);
-        chips.setPadding(Mono.dp(10), Mono.dp(6), Mono.dp(10), 0);
-        chipsScroll.addView(chips);
-        panel.addView(chipsScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout bottom = new LinearLayout(c);
         bottom.setOrientation(LinearLayout.HORIZONTAL);
         bottom.setGravity(Gravity.CENTER_VERTICAL);
-        bottom.setPadding(Mono.dp(10), Mono.dp(8), Mono.dp(10), Mono.dp(12));
-
-        menuBtn = Mono.makeButton(c, "☰", Mono.SOFT, 20, 24);
-        menuBtn.setOnClickListener(v -> {
-            gridOpen = !gridOpen;
-            if (gridOpen) {
-                hideKeyboard();
-            }
-            renderMenu();
-        });
-        bottom.addView(menuBtn, new LinearLayout.LayoutParams(Mono.dp(48), Mono.dp(48)));
+        bottom.setPadding(Mono.dp(12), Mono.dp(10), Mono.dp(12), Mono.dp(4));
 
         input = new EditText(c);
         input.setSingleLine(true);
-        input.setHint("Сообщение или ответ…");
+        input.setHint("Ответ боту (сумма, ID, пример…)");
         input.setTextColor(Mono.TEXT);
         input.setHintTextColor(Mono.MUTED);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        input.setBackground(Mono.rounded(Mono.SURFACE2, 24, Mono.LINE, 1));
-        input.setPadding(Mono.dp(18), 0, Mono.dp(18), 0);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        input.setBackground(Mono.rounded(Mono.SURFACE2, 21, Mono.LINE, 1));
+        input.setPadding(Mono.dp(16), 0, Mono.dp(16), 0);
         input.setImeOptions(EditorInfo.IME_ACTION_SEND);
         cursor(input);
         input.setOnEditorActionListener((v, id, ev) -> {
             sendInput();
             return true;
         });
-        input.setOnFocusChangeListener((v, has) -> {
-            if (has && gridOpen) {
-                gridOpen = false;
-                renderMenu();
-            }
-        });
-        LinearLayout.LayoutParams inLp = new LinearLayout.LayoutParams(0, Mono.dp(48), 1);
-        inLp.leftMargin = Mono.dp(8);
+        LinearLayout.LayoutParams inLp = new LinearLayout.LayoutParams(0, Mono.dp(42), 1);
         inLp.rightMargin = Mono.dp(8);
         bottom.addView(input, inLp);
 
-        TextView sendBtn = Mono.makeButton(c, "➤", Mono.BLUE, 18, 24);
+        TextView sendBtn = Mono.makeButton(c, "➤", Mono.BLUE, 16, 21);
         sendBtn.setOnClickListener(v -> sendInput());
-        bottom.addView(sendBtn, new LinearLayout.LayoutParams(Mono.dp(48), Mono.dp(48)));
+        bottom.addView(sendBtn, new LinearLayout.LayoutParams(Mono.dp(42), Mono.dp(42)));
         panel.addView(bottom);
+
+        nav = new LinearLayout(c);
+        nav.setOrientation(LinearLayout.HORIZONTAL);
+        nav.setPadding(Mono.dp(6), Mono.dp(2), Mono.dp(6), Mono.dp(8));
+        panel.addView(nav, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         gameBox.addView(panel);
         root.addView(gameBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
 
@@ -589,7 +559,156 @@ public class GameScreen {
         scroll.post(() -> scroll.smoothScrollTo(0, list.getBottom()));
     }
 
-    // ===================== МЕНЮ =====================
+    // ===================== НАВИГАЦИЯ ПРИЛОЖЕНИЯ =====================
+    private LinearLayout nav;
+    private JSONArray sections;
+    private List<String> quick = new ArrayList<>();
+    private boolean menuLoaded = false;
+
+    private TextView cardAvatar;
+    private TextView cardName;
+    private TextView cardLevel;
+    private TextView cardMoney;
+    private TextView cardSub;
+    private View barFill;
+    private View barRest;
+    private JSONObject card;
+
+    private View buildCard() {
+        Context c = act;
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.HORIZONTAL);
+        box.setGravity(Gravity.CENTER_VERTICAL);
+        box.setBackground(Mono.rounded(Mono.SURFACE, 18, Mono.LINE, 1));
+        box.setPadding(Mono.dp(12), Mono.dp(10), Mono.dp(14), Mono.dp(10));
+        box.setClickable(true);
+        box.setOnClickListener(v -> send("👤 Профиль"));
+
+        cardAvatar = new TextView(c);
+        cardAvatar.setGravity(Gravity.CENTER);
+        cardAvatar.setTypeface(Mono.DISPLAY);
+        cardAvatar.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+        cardAvatar.setTextColor(Mono.TEXT);
+        cardAvatar.setBackground(Mono.blueGradient(21));
+        box.addView(cardAvatar, new LinearLayout.LayoutParams(Mono.dp(42), Mono.dp(42)));
+
+        LinearLayout mid = new LinearLayout(c);
+        mid.setOrientation(LinearLayout.VERTICAL);
+        mid.setPadding(Mono.dp(12), 0, Mono.dp(8), 0);
+        cardName = new TextView(c);
+        cardName.setTextColor(Mono.TEXT);
+        cardName.setTypeface(Mono.MEDIUM);
+        cardName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        cardName.setSingleLine(true);
+        cardName.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        mid.addView(cardName);
+        cardLevel = new TextView(c);
+        cardLevel.setTextColor(Mono.MUTED);
+        cardLevel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        mid.addView(cardLevel);
+        LinearLayout bar = new LinearLayout(c);
+        bar.setBackground(Mono.rounded(Mono.SURFACE2, 3, Mono.SURFACE2, 0));
+        barFill = new View(c);
+        barFill.setBackground(Mono.blueGradient(3));
+        barRest = new View(c);
+        bar.addView(barFill, new LinearLayout.LayoutParams(0, Mono.dp(5), 0));
+        bar.addView(barRest, new LinearLayout.LayoutParams(0, Mono.dp(5), 1));
+        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(5));
+        barLp.topMargin = Mono.dp(5);
+        mid.addView(bar, barLp);
+        box.addView(mid, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        LinearLayout right = new LinearLayout(c);
+        right.setOrientation(LinearLayout.VERTICAL);
+        right.setGravity(Gravity.END);
+        cardMoney = new TextView(c);
+        cardMoney.setTextColor(Mono.TEXT);
+        cardMoney.setTypeface(Mono.DISPLAY);
+        cardMoney.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        cardMoney.setGravity(Gravity.END);
+        right.addView(cardMoney);
+        cardSub = new TextView(c);
+        cardSub.setTextColor(Mono.MUTED);
+        cardSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        cardSub.setGravity(Gravity.END);
+        right.addView(cardSub);
+        box.addView(right);
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(Mono.dp(12), Mono.dp(10), Mono.dp(12), 0);
+        box.setLayoutParams(lp);
+        renderCard();
+        return box;
+    }
+
+    private static String money(long v) {
+        String s = String.valueOf(Math.abs(v));
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            if (i > 0 && (s.length() - i) % 3 == 0) {
+                b.append('\u2009');
+            }
+            b.append(s.charAt(i));
+        }
+        return (v < 0 ? "−" : "") + b;
+    }
+
+    private void renderCard() {
+        if (cardName == null) {
+            return;
+        }
+        if (card == null) {
+            cardAvatar.setText("Э");
+            cardName.setText("Загрузка…");
+            cardLevel.setText("");
+            cardMoney.setText("");
+            cardSub.setText("");
+            return;
+        }
+        String name = card.optString("name", "Игрок");
+        cardAvatar.setText(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase());
+        cardName.setText(name);
+        int exp = card.optInt("exp");
+        int need = Math.max(1, card.optInt("need", 1));
+        cardLevel.setText("⭐ Ур. " + card.optInt("level") + " · опыт " + exp + "/" + need);
+        float part = Math.max(0f, Math.min(1f, exp / (float) need));
+        barFill.setLayoutParams(new LinearLayout.LayoutParams(0, Mono.dp(5), part));
+        barRest.setLayoutParams(new LinearLayout.LayoutParams(0, Mono.dp(5), 1f - part));
+        cardMoney.setText(money(card.optLong("money")) + " ₽");
+        long debt = card.optLong("debt");
+        cardSub.setText(debt > 0 ? "долг " + money(debt) + " ₽" : "нажмите — профиль");
+        cardSub.setTextColor(debt > 0 ? 0xFFFF6B6B : Mono.MUTED);
+    }
+
+    void setCard(JSONObject c) {
+        if (c != null) {
+            card = c;
+            renderCard();
+        }
+    }
+
+    /** Разделы меню с сервера (из menu.py бота). */
+    private void loadMenu() {
+        actions.execute(() -> {
+            try {
+                final JSONObject r = Api.call(server, "GET", "/api/menu", null, token, 15000);
+                act.ui.post(() -> {
+                    sections = r.optJSONArray("sections");
+                    JSONArray q = r.optJSONArray("quick");
+                    quick.clear();
+                    for (int i = 0; q != null && i < q.length(); i++) {
+                        quick.add(q.optString(i));
+                    }
+                    menuLoaded = true;
+                    renderMenu();
+                });
+            } catch (Api.ApiError e) {
+                // покажем меню из клавиатуры бота
+            }
+        });
+    }
+
     private void setMenu(JSONArray rows) {
         menu = rows;
         if (rows == null) {
@@ -617,58 +736,166 @@ public class GameScreen {
         return out;
     }
 
-    private void renderMenu() {
-        chips.removeAllViews();
-        grid.removeAllViews();
-        if (menuBtn != null) {
-            menuBtn.setBackground(Mono.button(gridOpen ? Mono.BLUE : Mono.SOFT, 24));
+    private static String[] splitLabel(String text) {
+        String t = text.trim();
+        int sp = t.indexOf(' ');
+        if (sp > 0 && sp <= 4) {
+            return new String[]{t.substring(0, sp), t.substring(sp + 1).trim()};
         }
-        boolean has = menu != null && menu.length() > 0;
-        if (!has) {
-            gridOpen = false;
-        }
-        chipsScroll.setVisibility(has && !gridOpen ? View.VISIBLE : View.GONE);
-        grid.setVisibility(has && gridOpen ? View.VISIBLE : View.GONE);
-        if (!has) {
-            return;
-        }
-        if (gridOpen) {
-            for (int r = 0; r < menu.length(); r++) {
-                JSONArray row = menu.optJSONArray(r);
-                if (row == null) {
-                    continue;
-                }
-                LinearLayout rv = new LinearLayout(act);
-                for (int i = 0; i < row.length(); i++) {
-                    rv.addView(menuButton(row.optString(i), true));
-                }
-                grid.addView(rv);
-            }
-        } else {
-            for (String s : menuItems()) {
-                chips.addView(menuButton(s, false));
-            }
-        }
+        return new String[]{"•", t};
     }
 
-    private TextView menuButton(final String text, boolean inGrid) {
-        boolean home = text.contains("Меню");
-        TextView b = Mono.makeButton(act, text, home ? Mono.BLUE : Mono.SOFT, 14, inGrid ? 14 : 19);
-        b.setSingleLine(true);
-        LinearLayout.LayoutParams lp = inGrid
-                ? new LinearLayout.LayoutParams(0, Mono.dp(46), 1)
-                : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Mono.dp(38));
-        int mg = Mono.dp(3);
-        lp.setMargins(mg, mg, mg, mg);
+    /** Нижняя панель навигации: 4 быстрых раздела + «Все». */
+    private void renderMenu() {
+        if (nav == null) {
+            return;
+        }
+        nav.removeAllViews();
+        List<String> items = new ArrayList<>(quick);
+        if (items.isEmpty()) {
+            List<String> all = menuItems();
+            items.addAll(all.subList(0, Math.min(4, all.size())));
+        }
+        for (String cmd : items) {
+            nav.addView(navItem(cmd, v -> send(cmd)));
+        }
+        nav.addView(navItem("☰ Все", v -> showSections()));
+    }
+
+    private View navItem(String text, View.OnClickListener l) {
+        String[] parts = splitLabel(text);
+        LinearLayout b = new LinearLayout(act);
+        b.setOrientation(LinearLayout.VERTICAL);
+        b.setGravity(Gravity.CENTER);
+        b.setClickable(true);
+        b.setBackground(Mono.button(Mono.SOFT, 14));
+        b.setPadding(Mono.dp(2), Mono.dp(6), Mono.dp(2), Mono.dp(6));
+        TextView ic = new TextView(act);
+        ic.setText(parts[0]);
+        ic.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19);
+        ic.setGravity(Gravity.CENTER);
+        b.addView(ic);
+        TextView lb = new TextView(act);
+        lb.setText(parts[1]);
+        lb.setTextColor(Mono.TEXT);
+        lb.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        lb.setTypeface(Mono.MEDIUM);
+        lb.setSingleLine(true);
+        lb.setGravity(Gravity.CENTER);
+        b.addView(lb);
+        b.setOnClickListener(l);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Mono.dp(56), 1);
+        lp.setMargins(Mono.dp(3), Mono.dp(3), Mono.dp(3), Mono.dp(3));
         b.setLayoutParams(lp);
-        b.setPadding(Mono.dp(14), 0, Mono.dp(14), 0);
-        b.setOnClickListener(v -> {
-            if (gridOpen) {
-                gridOpen = false;
-                renderMenu();
+        return b;
+    }
+
+    /** «☰ Все»: все разделы плитками, сгруппированные как в меню бота. */
+    private void showSections() {
+        hideKeyboard();
+        Context c = act;
+        ScrollView sv = new ScrollView(c);
+        LinearLayout col = new LinearLayout(c);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(Mono.dp(16), Mono.dp(8), Mono.dp(16), Mono.dp(8));
+        sv.addView(col);
+        final AlertDialog dlg = new AlertDialog.Builder(act).setView(sv).create();
+
+        JSONArray secs = sections;
+        if (secs == null || secs.length() == 0) {
+            secs = new JSONArray();
+            JSONObject one = new JSONObject();
+            JSONArray its = new JSONArray();
+            try {
+                for (String t : menuItems()) {
+                    JSONObject it = new JSONObject();
+                    it.put("label", t);
+                    it.put("cmd", t);
+                    its.put(it);
+                }
+                one.put("title", "Разделы");
+                one.put("items", its);
+                secs.put(one);
+            } catch (JSONException ignored) {
+                // не бывает
             }
-            send(text);
-        });
+        }
+        for (int i = 0; i < secs.length(); i++) {
+            JSONObject sec = secs.optJSONObject(i);
+            if (sec == null) {
+                continue;
+            }
+            TextView t = new TextView(c);
+            t.setText(sec.optString("title"));
+            t.setTextColor(Mono.TEXT);
+            t.setTypeface(Mono.DISPLAY);
+            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+            t.setPadding(Mono.dp(4), Mono.dp(12), 0, Mono.dp(2));
+            col.addView(t);
+            String desc = sec.optString("desc", "");
+            if (!desc.isEmpty()) {
+                TextView d = new TextView(c);
+                d.setText(desc);
+                d.setTextColor(Mono.MUTED);
+                d.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                d.setPadding(Mono.dp(4), 0, 0, Mono.dp(6));
+                col.addView(d);
+            }
+            JSONArray its = sec.optJSONArray("items");
+            LinearLayout row = null;
+            for (int k = 0; its != null && k < its.length(); k++) {
+                if (k % 3 == 0) {
+                    row = new LinearLayout(c);
+                    col.addView(row);
+                }
+                JSONObject it = its.optJSONObject(k);
+                if (it == null) {
+                    continue;
+                }
+                final String cmd = it.optString("cmd");
+                row.addView(tile(it.optString("label"), v -> {
+                    dlg.dismiss();
+                    if (chatTab) {
+                        setChatTab(false);
+                    }
+                    send(cmd);
+                }));
+            }
+            if (its != null && its.length() % 3 != 0 && row != null) {
+                for (int k = its.length() % 3; k < 3; k++) {
+                    View sp = new View(c);
+                    row.addView(sp, new LinearLayout.LayoutParams(0, 1, 1));
+                }
+            }
+        }
+        dlg.show();
+    }
+
+    private View tile(String label, View.OnClickListener l) {
+        String[] parts = splitLabel(label);
+        LinearLayout b = new LinearLayout(act);
+        b.setOrientation(LinearLayout.VERTICAL);
+        b.setGravity(Gravity.CENTER);
+        b.setClickable(true);
+        b.setBackground(Mono.button(Mono.SOFT, 16));
+        b.setPadding(Mono.dp(4), Mono.dp(8), Mono.dp(4), Mono.dp(8));
+        TextView ic = new TextView(act);
+        ic.setText(parts[0]);
+        ic.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
+        ic.setGravity(Gravity.CENTER);
+        b.addView(ic);
+        TextView lb = new TextView(act);
+        lb.setText(parts[1]);
+        lb.setTextColor(Mono.TEXT);
+        lb.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        lb.setTypeface(Mono.MEDIUM);
+        lb.setMaxLines(2);
+        lb.setGravity(Gravity.CENTER);
+        b.addView(lb);
+        b.setOnClickListener(l);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Mono.dp(88), 1);
+        lp.setMargins(Mono.dp(4), Mono.dp(4), Mono.dp(4), Mono.dp(4));
+        b.setLayoutParams(lp);
         return b;
     }
 
@@ -795,6 +1022,10 @@ public class GameScreen {
         if (all != null) {  // полное состояние
             linked = r.optBoolean("linked");
             chat.admin = r.optBoolean("admin");
+            setCard(r.optJSONObject("card"));
+            if (!menuLoaded) {
+                loadMenu();
+            }
             msgs.clear();
             for (int i = 0; i < all.length(); i++) {
                 JSONObject m = all.optJSONObject(i);
@@ -853,6 +1084,9 @@ public class GameScreen {
                         chat.onChat(cm);
                     }
                     break;
+                case "card":
+                    setCard(ev.optJSONObject("card"));
+                    break;
                 case "chatdel":
                     chat.onDelete(ev.optLong("id"));
                     break;
@@ -863,6 +1097,7 @@ public class GameScreen {
                         chat.onShow();
                     }
                     epoch = null;  // заново загрузить состояние (другой персонаж)
+                    menuLoaded = false;
                     break;
                 default:
                     break;
