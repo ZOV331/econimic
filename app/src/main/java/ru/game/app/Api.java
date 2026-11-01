@@ -86,6 +86,27 @@ public final class Api {
         }
     }
 
+    /** Скачивает небольшой текстовый файл; null при ошибке. */
+    public static String fetchText(String address) {
+        HttpURLConnection c = null;
+        try {
+            c = (HttpURLConnection) new URL(address).openConnection();
+            c.setConnectTimeout(8000);
+            c.setReadTimeout(8000);
+            c.setUseCaches(false);
+            if (c.getResponseCode() != 200) {
+                return null;
+            }
+            return readAll(c.getInputStream());
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (c != null) {
+                c.disconnect();
+            }
+        }
+    }
+
     static byte[] readBytes(InputStream is) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buf = new byte[16384];

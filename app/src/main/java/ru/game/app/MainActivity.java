@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         Mono.density = getResources().getDisplayMetrics().density;
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        refreshServerAsync();
         if (prefs.getString("token", null) != null) {
             openGame(null);
         } else {
@@ -80,10 +81,44 @@ public class MainActivity extends Activity {
     }
 
     String serverAddress() {
+        String remote = prefs.getString("server_remote", "");
+        if (!remote.isEmpty()) {
+            return remote;
+        }
         if (!Config.DEFAULT_SERVER.isEmpty()) {
             return Api.normalize(Config.DEFAULT_SERVER);
         }
         return prefs.getString("server", "");
+    }
+
+    private long lastRefresh = 0;
+
+    /** Читает актуальный адрес сервера из server.txt; если он сменился — переподключается. */
+    void refreshServerAsync() {
+        if (Config.REMOTE_CONFIG.isEmpty() || System.currentTimeMillis() - lastRefresh < 30000) {
+            return;
+        }
+        lastRefresh = System.currentTimeMillis();
+        new Thread(() -> {
+            String text = Api.fetchText(Config.REMOTE_CONFIG + "?t=" + System.currentTimeMillis());
+            if (text == null || text.trim().isEmpty()) {
+                return;
+            }
+            final String url = Api.normalize(text.trim().split("\\s+")[0]);
+            if (!url.startsWith("http")) {
+                return;
+            }
+            ui.post(() -> {
+                if (url.equals(serverAddress())) {
+                    return;
+                }
+                prefs.edit().putString("server_remote", url).apply();
+                if (game != null) {
+                    game.stop();
+                    openGame(null);
+                }
+            });
+        }).start();
     }
 
     void openGame(String firstCommand) {
@@ -219,7 +254,7 @@ public class MainActivity extends Activity {
             if (busy) {
                 return;
             }
-            final String base = Api.normalize(server == null ? Config.DEFAULT_SERVER : server.getText().toString());
+            final String base = server == null ? serverAddress() : Api.normalize(server.getText().toString());
             final String l = login.getText().toString().trim();
             final String p = pass.getText().toString();
             final String n = name == null ? "" : name.getText().toString().trim();
@@ -254,6 +289,7 @@ public class MainActivity extends Activity {
                     busy = false;
                     if (fe != null || fr == null) {
                         error.setText(fe == null ? "Ошибка" : fe);
+                        refreshServerAsync();
                         go.setText(goText);
                         return;
                     }

@@ -616,6 +616,7 @@ public class GameScreen {
                 act.ui.post(() -> {
                     if (my == gen) {
                         setStatus("нет связи…");
+                        act.refreshServerAsync();
                     }
                 });
                 try {

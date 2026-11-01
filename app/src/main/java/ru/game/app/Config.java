@@ -10,7 +10,13 @@ public final class Config {
      * Например: "http://192.168.1.5:8901" или "http://ваш-сервер.ru:8901".
      * Оставьте пустым, чтобы игрок вводил адрес сам.
      */
-     public static final String DEFAULT_SERVER = "http://shrimp-delaware.tun.ply.gg:57192";
+    public static final String DEFAULT_SERVER = "https://dealt-bathrooms-matt-cgi.trycloudflare.com";
+
+    /**
+     * Файл с актуальным адресом сервера. Приложение читает его при запуске и когда пропадает связь.
+     * Адрес туннеля сменился — поменяйте одну строку в server.txt на GitHub, пересобирать APK не нужно.
+     */
+    public static final String REMOTE_CONFIG = "https://raw.githubusercontent.com/ZOV331/econimic/main/server.txt";
 
     private Config() {
     }
