@@ -62,10 +62,19 @@ public class GameScreen {
     private boolean gridOpen = false;
     private TextView menuBtn;
 
+    private final ChatPanel chat;
+    private boolean chatTab = false;
+    private TextView tabGame;
+    private TextView tabChat;
+    private View gameArea;
+    private View chatArea;
+    private boolean linked = false;
+
     GameScreen(MainActivity act, String server, String token) {
         this.act = act;
         this.server = server;
         this.token = token;
+        this.chat = new ChatPanel(this, act);
         String saved = act.prefs.getString("menu", null);
         if (saved != null) {
             try {
@@ -109,16 +118,31 @@ public class GameScreen {
         status.setPadding(Mono.dp(10), 0, 0, 0);
         top.addView(status, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
-        TextView exit = Mono.makeButton(c, "Выйти", Mono.SOFT, 13, 17);
-        exit.setOnClickListener(v -> new AlertDialog.Builder(act)
-                .setMessage("Выйти из аккаунта?")
-                .setPositiveButton("Выйти", (d, w) -> act.logout())
-                .setNegativeButton("Отмена", null)
-                .show());
-        exit.setPadding(Mono.dp(14), 0, Mono.dp(14), 0);
-        top.addView(exit, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Mono.dp(34)));
+        TextView more = Mono.makeButton(c, "⋯", Mono.SOFT, 18, 17);
+        more.setOnClickListener(v -> showMenu());
+        more.setPadding(Mono.dp(14), 0, Mono.dp(14), 0);
+        top.addView(more, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Mono.dp(34)));
         root.addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(58)));
         root.addView(line(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Mono.dp(1)));
+
+        // --- вкладки Игра / Чат ---
+        LinearLayout tabs = new LinearLayout(c);
+        tabs.setBackground(Mono.rounded(Mono.SURFACE, 16, Mono.LINE, 1));
+        tabs.setPadding(Mono.dp(4), Mono.dp(4), Mono.dp(4), Mono.dp(4));
+        tabGame = tabButton("🎮 Игра");
+        tabChat = tabButton("💬 Чат");
+        tabGame.setOnClickListener(v -> setChatTab(false));
+        tabChat.setOnClickListener(v -> setChatTab(true));
+        tabs.addView(tabGame, new LinearLayout.LayoutParams(0, Mono.dp(38), 1));
+        tabs.addView(tabChat, new LinearLayout.LayoutParams(0, Mono.dp(38), 1));
+        LinearLayout.LayoutParams tabsLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        tabsLp.setMargins(Mono.dp(12), Mono.dp(10), Mono.dp(12), 0);
+        root.addView(tabs, tabsLp);
+
+        LinearLayout gameBox = new LinearLayout(c);
+        gameBox.setOrientation(LinearLayout.VERTICAL);
+        gameArea = gameBox;
 
         // --- лента ---
         scroll = new ScrollView(c);
@@ -129,7 +153,7 @@ public class GameScreen {
         list.setPadding(Mono.dp(14), Mono.dp(14), Mono.dp(14), Mono.dp(6));
         scroll.addView(list, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        gameBox.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
 
         emptyHint = new TextView(c);
         emptyHint.setText("Откройте раздел в меню внизу");
@@ -207,7 +231,12 @@ public class GameScreen {
         sendBtn.setOnClickListener(v -> sendInput());
         bottom.addView(sendBtn, new LinearLayout.LayoutParams(Mono.dp(48), Mono.dp(48)));
         panel.addView(bottom);
-        root.addView(panel);
+        gameBox.addView(panel);
+        root.addView(gameBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+
+        chatArea = chat.build();
+        root.addView(chatArea, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        applyTab();
 
         act.setScreen(root);
 
@@ -220,6 +249,133 @@ public class GameScreen {
         updateEmpty();
         renderMenu();
         scrollToBottom();
+    }
+
+    private TextView tabButton(String text) {
+        TextView t = new TextView(act);
+        t.setText(text);
+        t.setGravity(Gravity.CENTER);
+        t.setTypeface(Mono.MEDIUM);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        t.setClickable(true);
+        return t;
+    }
+
+    private void setChatTab(boolean on) {
+        chatTab = on;
+        hideKeyboard();
+        applyTab();
+        if (on) {
+            chat.onShow();
+        }
+    }
+
+    private void applyTab() {
+        gameArea.setVisibility(chatTab ? View.GONE : View.VISIBLE);
+        chatArea.setVisibility(chatTab ? View.VISIBLE : View.GONE);
+        tabGame.setBackground(chatTab ? null : Mono.blueGradient(12));
+        tabChat.setBackground(chatTab ? Mono.blueGradient(12) : null);
+        tabGame.setTextColor(chatTab ? Mono.MUTED : Mono.TEXT);
+        tabChat.setTextColor(chatTab ? Mono.TEXT : Mono.MUTED);
+        updateChatBadge();
+    }
+
+    boolean chatVisible() {
+        return chatTab;
+    }
+
+    void updateChatBadge() {
+        if (tabChat == null) {
+            return;
+        }
+        int n = chat.unreadTotal();
+        tabChat.setText(n > 0 ? "💬 Чат  •  " + n : "💬 Чат");
+    }
+
+    // ===================== МЕНЮ «⋯» и привязка Telegram =====================
+    private void showMenu() {
+        final String linkItem = linked ? "Отвязать Telegram" : "Привязать Telegram";
+        new AlertDialog.Builder(act)
+                .setItems(new CharSequence[]{linkItem, "Выйти из аккаунта"}, (d, which) -> {
+                    if (which == 0) {
+                        if (linked) {
+                            confirmUnlink();
+                        } else {
+                            confirmLink();
+                        }
+                    } else {
+                        new AlertDialog.Builder(act)
+                                .setMessage("Выйти из аккаунта?")
+                                .setPositiveButton("Выйти", (d2, w) -> act.logout())
+                                .setNegativeButton("Отмена", null)
+                                .show();
+                    }
+                })
+                .show();
+    }
+
+    private void confirmLink() {
+        new AlertDialog.Builder(act)
+                .setTitle("Привязать Telegram")
+                .setMessage("Если вы уже играли в боте в Telegram, после привязки в приложении будет ваш "
+                        + "Telegram-персонаж со всем прогрессом. Играть можно и там, и здесь.\n\n"
+                        + "Персонаж этого аккаунта приложения сохранится — к нему можно вернуться, отвязав Telegram.")
+                .setPositiveButton("Получить код", (d, w) -> startLink())
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private void startLink() {
+        actions.execute(() -> {
+            try {
+                final JSONObject r = Api.call(server, "POST", "/api/link/start", new JSONObject(), token, 15000);
+                act.ui.post(() -> showLinkCode(r.optString("code"), r.isNull("bot") ? "" : r.optString("bot", "")));
+            } catch (Api.ApiError e) {
+                act.ui.post(() -> toast(e.getMessage()));
+            }
+        });
+    }
+
+    private void showLinkCode(final String code, final String bot) {
+        final String cmd = "/link " + code;
+        AlertDialog.Builder b = new AlertDialog.Builder(act)
+                .setTitle("Код привязки")
+                .setMessage("Отправьте боту игры в Telegram сообщение:\n\n" + cmd
+                        + "\n\nКод действует 10 минут. После этого приложение переключится само.")
+                .setNegativeButton("Копировать", (d, w) -> {
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager)
+                            act.getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("code", cmd));
+                        toast("Скопировано");
+                    }
+                })
+                .setNeutralButton("Закрыть", null);
+        if (!bot.isEmpty()) {
+            b.setPositiveButton("Открыть Telegram", (d, w) -> {
+                try {
+                    act.startActivity(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://t.me/" + bot + "?start=link_" + code)));
+                } catch (Exception e) {
+                    toast("Не удалось открыть Telegram");
+                }
+            });
+        }
+        b.show();
+    }
+
+    private void confirmUnlink() {
+        new AlertDialog.Builder(act)
+                .setMessage("Отвязать Telegram? В приложении вернётся персонаж этого аккаунта приложения.")
+                .setPositiveButton("Отвязать", (d, w) -> actions.execute(() -> {
+                    try {
+                        Api.call(server, "POST", "/api/link/remove", new JSONObject(), token, 15000);
+                    } catch (Api.ApiError e) {
+                        act.ui.post(() -> toast(e.getMessage()));
+                    }
+                }))
+                .setNegativeButton("Отмена", null)
+                .show();
     }
 
     private View line() {
@@ -637,6 +793,8 @@ public class GameScreen {
     private void handle(JSONObject r) {
         JSONArray all = r.optJSONArray("messages");
         if (all != null) {  // полное состояние
+            linked = r.optBoolean("linked");
+            chat.admin = r.optBoolean("admin");
             msgs.clear();
             for (int i = 0; i < all.length(); i++) {
                 JSONObject m = all.optJSONObject(i);
@@ -688,6 +846,23 @@ public class GameScreen {
                     break;
                 case "menu":
                     setMenu(ev.optJSONArray("rows"));
+                    break;
+                case "chat":
+                    JSONObject cm = ev.optJSONObject("m");
+                    if (cm != null) {
+                        chat.onChat(cm);
+                    }
+                    break;
+                case "chatdel":
+                    chat.onDelete(ev.optLong("id"));
+                    break;
+                case "relink":
+                    toast(ev.optString("text", "Аккаунт обновлён"));
+                    chat.reset();
+                    if (chatTab) {
+                        chat.onShow();
+                    }
+                    epoch = null;  // заново загрузить состояние (другой персонаж)
                     break;
                 default:
                     break;
