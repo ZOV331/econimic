@@ -10,7 +10,7 @@ public final class Config {
      * Например: "http://192.168.1.5:8901" или "http://ваш-сервер.ru:8901".
      * Оставьте пустым, чтобы игрок вводил адрес сам.
      */
-     public static final String DEFAULT_SERVER = "http://216.227.168.237:8901";
+     public static final String DEFAULT_SERVER = "http://shrimp-delaware.tun.ply.gg:57192";
 
     private Config() {
     }
