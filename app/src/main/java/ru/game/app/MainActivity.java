@@ -1,7 +1,10 @@
 package ru.game.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
@@ -37,6 +40,7 @@ public class MainActivity extends Activity {
         Mono.density = getResources().getDisplayMetrics().density;
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         refreshServerAsync();
+        checkUpdateAsync();
         if (prefs.getString("token", null) != null) {
             openGame(null);
         } else {
@@ -63,6 +67,61 @@ public class MainActivity extends Activity {
     void setScreen(View v) {
         v.setBackgroundColor(Mono.BG);
         setContentView(v);
+    }
+
+    // ===================== ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ =====================
+    @SuppressWarnings("deprecation")
+    int myVersion() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+        } catch (Exception e) {
+            return 1;
+        }
+    }
+
+    /** Спрашивает GitHub, нет ли версии новее; если есть — предлагает обновиться. */
+    void checkUpdateAsync() {
+        if (Config.UPDATE_CHECK.isEmpty()) {
+            return;
+        }
+        final int mine = myVersion();
+        new Thread(() -> {
+            String json = Api.fetchText(Config.UPDATE_CHECK);
+            if (json == null) {
+                return;
+            }
+            int latest;
+            try {
+                String tag = new JSONObject(json).optString("tag_name", "");
+                latest = Integer.parseInt(tag.replaceAll("[^0-9]", ""));
+            } catch (Exception e) {
+                return;
+            }
+            if (latest <= mine) {
+                return;
+            }
+            final int fl = latest;
+            ui.post(() -> {
+                if (isFinishing()) {
+                    return;
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle("Доступно обновление")
+                        .setMessage("Вышла новая версия приложения (1." + fl + ").\n\n"
+                                + "Нажмите «Обновить» — загрузится файл. Откройте его, чтобы установить поверх. "
+                                + "Аккаунт и прогресс сохранятся.")
+                        .setPositiveButton("Обновить", (d, w) -> {
+                            try {
+                                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Config.UPDATE_DOWNLOAD)));
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(this, "Не удалось открыть загрузку",
+                                        android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setNegativeButton("Позже", null)
+                        .show();
+            });
+        }).start();
     }
 
     // ===================== ИГРА =====================

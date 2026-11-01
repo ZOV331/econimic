@@ -18,6 +18,11 @@ public final class Config {
      */
     public static final String REMOTE_CONFIG = "https://raw.githubusercontent.com/ZOV331/econimic/main/server.txt";
 
+    /** Проверка обновлений приложения (выпуски на GitHub, их создаёт сборка). */
+    public static final String UPDATE_CHECK = "https://api.github.com/repos/ZOV331/econimic/releases/latest";
+    public static final String UPDATE_DOWNLOAD =
+            "https://github.com/ZOV331/econimic/releases/latest/download/Ekonomika.apk";
+
     private Config() {
     }
 }

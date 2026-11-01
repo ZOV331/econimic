@@ -10,8 +10,9 @@ android {
         applicationId "ru.game.app"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        // Номер версии подставляет сборка на GitHub (номер запуска). Локально — 1.
+        versionCode((project.findProperty("vc") ?: "1").toString().toInteger())
+        versionName "1." + (project.findProperty("vc") ?: "1").toString()
     }
 
     // Постоянный ключ подписи: обновления ставятся поверх старой версии.
