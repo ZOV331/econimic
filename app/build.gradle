@@ -1,0 +1,39 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ru.game.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "ru.game.app"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    // Постоянный ключ подписи: обновления ставятся поверх старой версии.
+    // Не публикуйте этот файл и пароль (держите репозиторий приватным).
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword 'hdOJj6or8h5tPB8-'
+            keyAlias 'game'
+            keyPassword 'hdOJj6or8h5tPB8-'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
