@@ -24,6 +24,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -45,6 +46,8 @@ public class MainActivity extends Activity {
     private View splash;
     private TextView splashText;
     private TextView retry;
+    private TextView manual;
+    private String lastError = "";
     private PermissionRequest pendingMic;
     private boolean loaded = false;
     private boolean failed = false;
@@ -62,6 +65,7 @@ public class MainActivity extends Activity {
             return;
         }
         connect();
+        ui.postDelayed(watchdog, 30000);
         checkUpdateAsync();
     }
 
@@ -107,6 +111,8 @@ public class MainActivity extends Activity {
                     return;   // страница ошибки — заставку не убираем
                 }
                 loaded = true;
+                attempts = 0;
+                saveToken();
                 splash.animate().alpha(0f).setDuration(250).withEndAction(() -> splash.setVisibility(View.GONE)).start();
             }
 
@@ -114,6 +120,7 @@ public class MainActivity extends Activity {
             public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError error) {
                 if (req.isForMainFrame()) {
                     failed = true;
+                    lastError = String.valueOf(error.getDescription());
                     showOffline();
                 }
             }
@@ -164,7 +171,8 @@ public class MainActivity extends Activity {
         name.setLetterSpacing(0.06f);
         name.setTextColor(Color.WHITE);
         name.setPadding(0, Mono.dp(22), 0, Mono.dp(6));
-        sp.addView(name);
+        name.setGravity(Gravity.CENTER);
+        sp.addView(name, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         splashText = new TextView(this);
         splashText.setText("Подключение к серверу…");
         splashText.setTextColor(Mono.MUTED);
@@ -178,6 +186,16 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(Mono.dp(200), Mono.dp(52));
         rl.topMargin = Mono.dp(22);
         sp.addView(retry, rl);
+        // свой адрес сервера — если автоматический не открывается (например, у провайдера заблокирован GitHub)
+        manual = new TextView(this);
+        manual.setText("Ввести адрес сервера");
+        manual.setTextColor(Mono.MUTED);
+        manual.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        manual.setGravity(Gravity.CENTER);
+        manual.setPadding(Mono.dp(20), Mono.dp(18), Mono.dp(20), Mono.dp(18));
+        manual.setVisibility(View.GONE);
+        manual.setOnClickListener(v -> askAddress());
+        sp.addView(manual, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         splash = sp;
         root.addView(sp, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -198,6 +216,10 @@ public class MainActivity extends Activity {
 
     // ===================== ПОДКЛЮЧЕНИЕ =====================
     String serverAddress() {
+        String own = prefs.getString("server_manual", "");
+        if (!own.isEmpty()) {
+            return own;
+        }
         String remote = prefs.getString("server_remote", "");
         if (!remote.isEmpty()) {
             return remote;
@@ -206,50 +228,138 @@ public class MainActivity extends Activity {
     }
 
     /** Сразу открывает игру по сохранённому адресу, а свежий адрес из server.txt проверяет фоном. */
+    private final Runnable loadTimeout = () -> {
+        if (!loaded) {
+            if (lastError.isEmpty()) {
+                lastError = "сервер не ответил за 25 секунд";
+            }
+            showOffline();
+        }
+    };
+
+    private final Runnable autoRetry = () -> {
+        if (!loaded && !isFinishing()) {
+            connect();
+        }
+    };
+
     private void connect() {
         loaded = false;
+        lastError = "";
         splash.setVisibility(View.VISIBLE);
         splash.setAlpha(1f);
         splashText.setText("Подключение к серверу…");
         retry.setVisibility(View.GONE);
+        manual.setVisibility(View.GONE);
         final String saved = serverAddress();
         open(saved);
         new Thread(() -> {
-            if (Config.REMOTE_CONFIG.isEmpty()) {
-                return;
-            }
-            String text = Api.fetchText(Config.REMOTE_CONFIG + "?t=" + System.currentTimeMillis());
-            if (text == null || text.trim().isEmpty()) {
-                return;
-            }
-            final String url = Api.normalize(text.trim().split("\\s+")[0]);
-            if (!url.startsWith("http")) {
+            final String url = Api.fetchServerUrl();
+            if (url == null) {
                 return;
             }
             prefs.edit().putString("server_remote", url).apply();
+            if (!prefs.getString("server_manual", "").isEmpty()) {
+                return;   // игрок сам указал адрес — его и используем
+            }
             if (!url.equals(current)) {
                 ui.post(() -> open(url));   // адрес туннеля сменился — переходим на новый
             }
         }).start();
-        ui.postDelayed(() -> {
-            if (!loaded) {
-                showOffline();
-            }
-        }, 25000);
+        ui.removeCallbacks(loadTimeout);
+        ui.postDelayed(loadTimeout, 25000);
     }
 
     private void open(String base) {
         current = base;
         failed = false;
-        web.loadUrl(base + "/");
+        // токен входа переносим в новый адрес сервера: туннель сменил адрес — заходить заново не нужно
+        String tok = prefs.getString("tok", "");
+        web.loadUrl(base + "/" + (tok.isEmpty() ? "" : "#t=" + Uri.encode(tok)));
     }
+
+    private int attempts = 0;
+
+    /** Сохраняет токен входа из страницы (localStorage), чтобы не терять вход при смене адреса сервера. */
+    private void saveToken() {
+        if (web == null || !loaded) {
+            return;
+        }
+        web.evaluateJavascript("(function(){try{return localStorage.getItem('token')||''}catch(e){return ''}})()", v -> {
+            if (v == null) {
+                return;
+            }
+            String t = v.replace("\"", "");
+            if (t.equals("null")) {
+                t = "";
+            }
+            prefs.edit().putString("tok", t).apply();
+        });
+    }
+
+    /** Сторож связи: каждые 30 секунд сохраняет вход и проверяет, не сменился ли адрес сервера. */
+    private final Runnable watchdog = new Runnable() {
+        @Override
+        public void run() {
+            saveToken();
+            if (!Config.REMOTE_CONFIG.isEmpty()) {
+                new Thread(() -> {
+                    final String url = Api.fetchServerUrl();
+                    if (url == null || !prefs.getString("server_manual", "").isEmpty()) {
+                        return;
+                    }
+                    if (!url.equals(current)) {
+                        prefs.edit().putString("server_remote", url).apply();
+                        ui.post(() -> {
+                            saveToken();
+                            ui.postDelayed(() -> open(url), 400);
+                        });
+                    }
+                }).start();
+            }
+            ui.postDelayed(this, 30000);
+        }
+    };
 
     private void showOffline() {
         loaded = false;
+        // переподключаемся сами: 3, 6, 9 … секунд (не реже раза в 20 секунд), каждый раз со свежим адресом
+        attempts++;
+        ui.removeCallbacks(autoRetry);
+        ui.postDelayed(autoRetry, Math.min(20000, attempts * 3000));
         splash.setVisibility(View.VISIBLE);
         splash.setAlpha(1f);
-        splashText.setText("Нет связи с сервером игры.\nПроверьте интернет или попробуйте чуть позже.");
+        String host = Uri.parse(current).getHost();
+        splashText.setText("Нет связи с сервером игры.\nПереподключаюсь автоматически…"
+                + "\n\nАдрес: " + (host == null ? current : host)
+                + (lastError.isEmpty() ? "" : "\nОшибка: " + lastError)
+                + "\n\nЕсли включён VPN — попробуйте выключить его (или наоборот включить).");
         retry.setVisibility(View.VISIBLE);
+        manual.setVisibility(View.VISIBLE);
+    }
+
+    /** Окно «свой адрес сервера». Пустое поле — снова брать адрес автоматически. */
+    private void askAddress() {
+        final EditText in = new EditText(this);
+        in.setHint("https://….trycloudflare.com");
+        in.setSingleLine(true);
+        in.setText(prefs.getString("server_manual", ""));
+        int p = Mono.dp(20);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(p, Mono.dp(8), p, 0);
+        box.addView(in);
+        new AlertDialog.Builder(this)
+                .setTitle("Адрес сервера игры")
+                .setMessage("Спросите адрес у администратора игры. Оставьте поле пустым, чтобы приложение находило адрес само.")
+                .setView(box)
+                .setPositiveButton("Подключиться", (d, w) -> {
+                    String v = Api.normalize(in.getText().toString());
+                    prefs.edit().putString("server_manual", v.startsWith("http") ? v : "").apply();
+                    attempts = 0;
+                    connect();
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
     }
 
     /** Экран «запуск запрещён». */
@@ -271,31 +381,53 @@ public class MainActivity extends Activity {
     }
 
     // ===================== МИКРОФОН ДЛЯ ГОЛОСОВЫХ =====================
+    /** Микрофон (голосовые) и камера (видеокружки): спрашиваем разрешение Android и выдаём странице только их. */
     private void handleMic(PermissionRequest request) {
-        boolean wantsAudio = false;
+        java.util.List<String> want = new java.util.ArrayList<>();
+        java.util.List<String> perms = new java.util.ArrayList<>();
         for (String r : request.getResources()) {
             if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) {
-                wantsAudio = true;
+                want.add(r);
+                perms.add(android.Manifest.permission.RECORD_AUDIO);
+            } else if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) {
+                want.add(r);
+                perms.add(android.Manifest.permission.CAMERA);
             }
         }
-        if (!wantsAudio) {
+        if (want.isEmpty()) {
             request.deny();
             return;
         }
-        if (Build.VERSION.SDK_INT >= 23
-                && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            pendingMic = request;
-            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, MIC_REQUEST);
-            return;
+        pendingRes = want.toArray(new String[0]);
+        if (Build.VERSION.SDK_INT >= 23) {
+            java.util.List<String> need = new java.util.ArrayList<>();
+            for (String p : perms) {
+                if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) {
+                    need.add(p);
+                }
+            }
+            if (!need.isEmpty()) {
+                pendingMic = request;
+                requestPermissions(need.toArray(new String[0]), MIC_REQUEST);
+                return;
+            }
         }
-        request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+        request.grant(pendingRes);
     }
+
+    private String[] pendingRes = new String[0];
 
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
         if (code == MIC_REQUEST && pendingMic != null) {
-            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
-                pendingMic.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+            boolean all = results.length > 0;
+            for (int r : results) {
+                if (r != PackageManager.PERMISSION_GRANTED) {
+                    all = false;
+                }
+            }
+            if (all) {
+                pendingMic.grant(pendingRes);
             } else {
                 pendingMic.deny();
             }

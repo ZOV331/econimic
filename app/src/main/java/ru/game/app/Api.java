@@ -91,9 +91,11 @@ public final class Api {
         HttpURLConnection c = null;
         try {
             c = (HttpURLConnection) new URL(address).openConnection();
-            c.setConnectTimeout(8000);
-            c.setReadTimeout(8000);
+            c.setConnectTimeout(7000);
+            c.setReadTimeout(7000);
             c.setUseCaches(false);
+            c.setRequestProperty("Accept", "application/vnd.github.raw, text/plain, */*");
+            c.setRequestProperty("User-Agent", "ROVARI-App");
             if (c.getResponseCode() != 200) {
                 return null;
             }
@@ -105,6 +107,27 @@ public final class Api {
                 c.disconnect();
             }
         }
+    }
+
+    /** Актуальный адрес сервера: server.txt с GitHub, а если не открывается — с зеркал. null — нигде не получилось. */
+    public static String fetchServerUrl() {
+        String[] all = new String[Config.REMOTE_MIRRORS.length + 1];
+        all[0] = Config.REMOTE_CONFIG;
+        System.arraycopy(Config.REMOTE_MIRRORS, 0, all, 1, Config.REMOTE_MIRRORS.length);
+        for (String src : all) {
+            if (src == null || src.isEmpty()) {
+                continue;
+            }
+            String text = fetchText(src + (src.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis());
+            if (text == null || text.trim().isEmpty()) {
+                continue;
+            }
+            String url = normalize(text.trim().split("\\s+")[0]);
+            if (url.startsWith("http")) {
+                return url;
+            }
+        }
+        return null;
     }
 
     static byte[] readBytes(InputStream is) throws IOException {
