@@ -19,16 +19,24 @@ android {
     // Не публикуйте этот файл и пароль (держите репозиторий приватным).
     signingConfigs {
         release {
-            storeFile file('release.keystore')
-            storePassword 'hdOJj6or8h5tPB8-'
-            keyAlias 'game'
-            keyPassword 'hdOJj6or8h5tPB8-'
+            // Ключ подписи НЕ хранится в репозитории: сборка на GitHub берёт его из секретов
+            // (Settings → Secrets → Actions: ROVARI_KEYSTORE и ROVARI_KEY_PASS).
+            storeFile file('rovari.keystore')
+            storePassword System.getenv('ROVARI_KEY_PASS') ?: ''
+            keyAlias 'rovari'
+            keyPassword System.getenv('ROVARI_KEY_PASS') ?: ''
+            storeType 'pkcs12'
         }
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            // Защита кода: R8 сжимает и запутывает классы (имена превращаются в a, b, c…),
+            // убирает лишнее — APK меньше, а разобрать и изменить его намного сложнее.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            debuggable false
             signingConfig signingConfigs.release
         }
     }
