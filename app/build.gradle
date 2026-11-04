@@ -8,7 +8,9 @@ android {
 
     defaultConfig {
         applicationId "ru.game.app"
-        minSdk 24
+        // 21 = Android 5.0: весь код с API выше проверяется через Build.VERSION.SDK_INT,
+        // так что на старых телефонах приложение ставится и не падает.
+        minSdk 21
         targetSdk 34
         // Номер версии подставляет сборка на GitHub (номер запуска). Локально — 1.
         versionCode((project.findProperty("vc") ?: "1").toString().toInteger())
@@ -26,6 +28,11 @@ android {
             keyAlias 'rovari'
             keyPassword System.getenv('ROVARI_KEY_PASS') ?: ''
             storeType 'pkcs12'
+            // v1-подпись обязательна для Android 6 и старше: без неё установщик
+            // пишет «Пакет недействительный». v2/v3 — для новых версий Android.
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
         }
     }
 
