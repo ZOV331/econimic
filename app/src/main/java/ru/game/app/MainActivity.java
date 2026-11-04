@@ -43,6 +43,7 @@ public class MainActivity extends Activity {
     final Handler ui = new Handler(Looper.getMainLooper());
 
     private WebView web;
+    private CallKeep callKeep;   // [патч] мост для звонков: экран не гаснет, звук не обрывается
     private View splash;
     private TextView splashText;
     private TextView retry;
@@ -149,6 +150,10 @@ public class MainActivity extends Activity {
                 ui.post(() -> handleMic(request));
             }
         });
+        // [патч] мост для звонков: страница вызывает RovariCall.active(true/false),
+        // пока идёт разговор — экран не гаснет и Android не рвёт аудиосвязь
+        callKeep = new CallKeep(this);
+        web.addJavascriptInterface(callKeep, "RovariCall");
         root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -380,8 +385,8 @@ public class MainActivity extends Activity {
         });
     }
 
-    // ===================== МИКРОФОН ДЛЯ ГОЛОСОВЫХ =====================
-    /** Микрофон (голосовые) и камера (видеокружки): спрашиваем разрешение Android и выдаём странице только их. */
+    // ===================== МИКРОФОН ДЛЯ ГОЛОСОВЫХ И ЗВОНКОВ =====================
+    /** Микрофон (голосовые и звонки) и камера (видеозвонки): спрашиваем разрешение Android и выдаём странице только их. */
     private void handleMic(PermissionRequest request) {
         java.util.List<String> want = new java.util.ArrayList<>();
         java.util.List<String> perms = new java.util.ArrayList<>();
@@ -464,6 +469,15 @@ public class MainActivity extends Activity {
         if (web != null) {
             web.onPause();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        // [патч] при выходе из приложения снимаем «не засыпать» от звонка
+        if (callKeep != null) {
+            callKeep.release();
+        }
+        super.onDestroy();
     }
 
     // ===== Совместимость: старые нативные экраны (GameScreen, ChatPanel) больше не используются =====
