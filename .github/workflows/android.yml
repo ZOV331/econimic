@@ -27,7 +27,13 @@ jobs:
       - name: Сборка
         env:
           ROVARI_KEY_PASS: ${{ secrets.ROVARI_KEY_PASS }}
-        run: gradle assembleRelease --no-daemon
+        run: |
+          for i in 1 2 3; do
+            gradle assembleRelease --no-daemon -Pvc=${{ github.run_number }} && exit 0
+            echo "Попытка $i не удалась. Жду 45 секунд (частая причина — 429 Too Many Requests от Maven Central)..."
+            sleep 45
+          done
+          exit 1
 
       - uses: actions/upload-artifact@v4
         with:
